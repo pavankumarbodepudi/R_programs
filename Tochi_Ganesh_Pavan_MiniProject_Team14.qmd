@@ -1,0 +1,393 @@
+---
+title: "Mini Group Project 1"
+author: "Tochi | Ganesh | Pavan"
+format: html
+editor: visual
+---
+
+# Business Problem
+
+In this group project, you will work with analysts' forecast data of earning per share (EPS) provided by Wharton Research Data Services (WRDS). Institutional Brokers' Estimate System (I/B/E/S) provides historical data on certain financial indicators collected from thousands of individual analysts working in more than 3,000 broker houses.
+
+-   **TICKER:** A unique identifier assigned to each security. In this group project, you will only model "NFLX" ticker.
+
+-   **CNAME:** Company name
+
+-   **ACTDATS:** The Activation date: It is the date when the analyst forecast became effective within the IBES database.
+
+-   **ESTIMATOR:** Sellside institution (mostly broker house). It is just the broker.
+
+-   **ANALYS:** The person who makes the forecast and work for sellside institution. Estimators and analysts are represented by codes to hide their real names.
+
+-   **FPI:** Forecast Period Indicator: The forecasting period. 6: Next Fiscal Quarter 1: Next Fiscal Year
+
+-   **MEASURE**: The variable being estimated. We have data for earning per share (EPS)
+
+-   **VALUE:** The forecasted value of EPS
+
+-   **FPEDATS**: The Forecast Period End Date: It is the ending date of the fiscal period to which the estimate applies. For the majority of companies, the FPEDATS date is December 31st of that year.
+
+-   **REVDATS:** The Review Date: It is the most recent date on which IBES called the analyst and verified that particular estimate as still valid for that analyst. If an analyst confirms that a previous estimate is still valid, the original database record for that estimate is retained and only the REVDATS variable is updated. If an analyst changes their estimate for a given company, a new record is entered in the database with a new ANNDATS. The old record of the analyst (containing the previous estimate) is retained in the database.
+
+-   **REVTIMS**: Time-stamp of REVDATS
+
+-   **ANNDATS**: The Announce date: It is the date on which the analyst first made that particular estimate.
+
+-   **ANNTIMS**: Time-stamp of ANNDATS
+
+-   **ACTUAL**: The realized EPS, the true EPS value.
+
+-   **ANNDATS_ACT**: The Announced date of Actual EPS: The actual EPS value is announced by the company at this date.
+
+-   **ANNTIMS_ACT**: The time-stamp of ANNDATS_ACT
+
+```{r, echo=TRUE}
+library(dplyr)
+NFLX<-read.csv("NFLX.csv", header=TRUE)
+names(NFLX)
+```
+
+## How to read the data
+
+**The first row in NFLX data set**: On 09‐Aug-2002 (ANNDATS), analyst 6749 (ANALYS) at Estimator 1872 (ESTIMATOR) predicts that the EPS (MEASURE) for NETFLIX INC. (CNAME) with a ticker of NFLX (TICKER) with forecast period ending 30‐Sep-2002 (FPEDATS) is -\$0.0086 (VALUE). This estimates was entered into the database on 12‐Aug-2002 (ACTDATS). On 17-Oct-2002 (ANNDATS_ACT), NETFLIX INC. announced an actual EPS of \$7e-04 (\$0.0007) (ACTUAL) for this quarter (FPI=6).
+
+```{r, echo=TRUE}
+head(NFLX,n=1)
+```
+
+Missing Values:
+
+#### TASK 1A:
+
+Check to see the missing values in NFLX dataset and calculate the percent missing for each variable and list your findings below.
+
+```{r, echo=TRUE}
+#checking the missing values for each variable and also for entire dataset. 
+library(dplyr)
+#checking the missing values for each variable. 
+sum(is.na(NFLX$TICKER))
+sum(is.na(NFLX$TICKER))
+sum(is.na(NFLX$CNAME))
+sum(is.na(NFLX$ACTDATS))
+sum(is.na(NFLX$ESTIMATOR))
+sum(is.na(NFLX$ANALYS))
+sum(is.na(NFLX$FPI))
+sum(is.na(NFLX$MEASURE))
+sum(is.na(NFLX$VALUE))
+sum(is.na(NFLX$FPEDATS))
+sum(is.na(NFLX$REVDATS))
+sum(is.na(NFLX$REVTIMS))
+sum(is.na(NFLX$ANNDATS))
+sum(is.na(NFLX$ANNTIMS))
+sum(is.na(NFLX$ACTUAL))
+sum(is.na(NFLX$ANNDATS_ACT))
+sum(is.na(NFLX$ANNTIMS_ACT))
+
+#checking the missing values for entire dataset. 
+sum(is.na(NFLX))
+
+#By seeing the below count, it reflects the missing values from column level and dataset level matches. So the total number of missing values are 434.
+
+NFLX_missing_percent <- NFLX %>% summarise_all(~ mean(is.na(.)) * 100)
+NFLX_missing_percent
+
+
+
+```
+
+#### TASK 1B:
+
+After completing the following data manipulations on NFLX, save your reduced dataset as NFLX1.
+
+-   Drop rows from the data set when a variable has a missing value
+
+-   Drop rows from the data set the quarterly forecasts (drop FPI=6)
+
+-   Declare TICKER, CNAME, ESTIMATOR , ANALYS, FPI , and MEASURE variables as factor
+
+-   Declare ACTDATS, FPEDATS , ANNDATS, REVDATS, ANNDATS_ACT as time variable.
+
+-   Drop ANNTIMS_ACT, ANNTIMS , and REVTIMS
+
+-   Create a new column named YEAR that captures the year in FPEDATS
+
+-   Name your reduced dataset as NFLX1
+
+-   Print out data structure and the summary of NFLX1
+
+```{r, echo=TRUE}
+
+#Remove rows from the dataset whenever one of the variables does not have a value.
+NFLX_exclude_unneeded_value <- na.omit(NFLX)
+
+#Remove quarterly predictions (remove FPI=6) from the dataset.
+NFLX_FPI6 <- NFLX_exclude_unneeded_value %>% filter(FPI != 6)
+
+#TICKER, CNAME, ESTIMATOR, ANALYS, FPI, and MEASURE should all be declared as factor variables.
+NFLX_FPI6$TICKER <- factor(NFLX_FPI6$TICKER)
+NFLX_FPI6$CNAME <- factor(NFLX_FPI6$CNAME)
+NFLX_FPI6$ESTIMATOR <- factor(NFLX_FPI6$ESTIMATOR)
+NFLX_FPI6$ANALYS <- factor(NFLX_FPI6$ANALYS)
+NFLX_FPI6$FPI <- factor(NFLX_FPI6$FPI)
+NFLX_FPI6$MEASURE <- factor(NFLX_FPI6$MEASURE)
+
+#Setting the timestamp variables for ACTDATS, FPEDATS, ANNDATS, REVDATS, and ANNDATS_ACT.
+#Numbers are first converted to letters and then to words.
+NFLX_FPI6$FPEDATS<-as.character(NFLX_FPI6$FPEDATS)
+NFLX_FPI6$ACTDATS<-as.character(NFLX_FPI6$ACTDATS)
+NFLX_FPI6$ANNDATS<-as.character(NFLX_FPI6$ANNDATS)
+NFLX_FPI6$REVDATS<-as.character(NFLX_FPI6$REVDATS)
+NFLX_FPI6$ANNDATS_ACT<-as.character(NFLX_FPI6$ANNDATS_ACT)
+#Accurate character-to-date conversion.
+NFLX_FPI6$FPEDATS<- as.Date(NFLX_FPI6$FPEDATS, format = "%Y%m%d")
+NFLX_FPI6$ANNDATS<- as.Date(NFLX_FPI6$ANNDATS, format = "%Y%m%d")
+NFLX_FPI6$ACTDATS<- as.Date(NFLX_FPI6$ACTDATS, format = "%Y%m%d")
+NFLX_FPI6$REVDATS<- as.Date(NFLX_FPI6$REVDATS, format = "%Y%m%d")
+NFLX_FPI6$ANNDATS_ACT<- as.Date(NFLX_FPI6$FPEDATS, format = "%Y%m%d")
+
+
+#Getting rid of ANNTIMS_ACT, ANNTIMS, and REVTIMS
+NFLX1 <- subset(NFLX_FPI6,select=-c(ANNTIMS_ACT,ANNTIMS,REVTIMS))
+
+#Make a new field called YEAR to store the year in FPEDATS.
+library(lubridate)
+NFLX1$YEAR <- year(NFLX1$FPEDATS)
+
+#Produce a copy of NFLX1's data structure and executive summary.
+str(NFLX1)
+summary(NFLX1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+### TASK 2
+
+-   Calculate the total number of unique analysts in **NFLX1** dataset that provide forecasts each year and name your R object as **NumberAnalyst** and list them
+
+-   Calculate the total number of unique brokerage houses (ESTIMATOR) in **NFLX1** dataset that provide forecasts each year and name your R object as **NumberBrokerage** and list them
+
+    ```{r, echo=TRUE}
+
+
+
+    # Assuming you have a dataset named NFLX1 with a brokerage house variable named ESTIMATOR
+    # Convert FPEDATS to a date object
+    NFLX1$FPEDATS <- as.Date(as.character(NFLX1$FPEDATS), format = "%Y%m%d")
+
+    # Extract the year from FPEDATS
+    NFLX1$Year <- as.numeric(format(NFLX1$FPEDATS, "%Y"))
+
+    # Filter rows with non-missing values in ESTIMATOR
+    NFLX1_filtered <- NFLX1 %>% 
+      filter(!is.na(ESTIMATOR))
+
+    # Group by Year and calculate the count of unique brokerage houses
+    NumberBrokerage <- NFLX1_filtered %>% 
+      group_by(Year) %>% 
+      summarise(NumberBrokerage = n_distinct(ESTIMATOR))
+
+    # Show the result
+    NumberBrokerage
+
+
+
+    NumberAnalyst <- NFLX1 %>% 
+      group_by(YEAR) %>% 
+      summarise(n_distinct(ANALYS))
+    NumberAnalyst
+
+
+
+
+
+
+
+
+
+    #NumberBrokerage
+
+
+    ```
+
+### TASK 3
+
+It is quite possible that an analyst makes multiple forecasts throughout the year for the same fiscal period. Remove observations from **NFLX1** if an analyst has multiple predictions for the same year and keep the last one. Name your new dataset as **NFLX2.** . This step is crucial for successful execution of the following tasks. Print the dimension of NFLX2.
+
+```{r, echo=TRUE}
+
+NFLX2 <- NFLX1 %>%
+  group_by(ANALYS, YEAR) %>%
+  arrange(YEAR) %>%
+  slice(n())
+dim(NFLX2)
+summary(NFLX2)
+```
+
+### TASK 4
+
+For each year in **NFLX2**, calculate the forecast performance of each analyst from last year and save it in a new column **past_accuracy**. In the calculation of forecast performance, you can use the MEASURE-ACTUAL as the forecast accuracy measure. This action will create some missing values and this is perfectly fine. Print the summary of past_accuracy column
+
+```{r, echo=TRUE}
+
+# summary(NFLX2$past_accuracy)
+#STEP 1 : calculate forecast_performance using NFLX2
+prioryearvalue = NFLX2$VALUE
+prioryearactual = NFLX2$ACTUAL
+NFLX2$forecast_performance <- (prioryearvalue- prioryearactual)
+
+
+#STEP 2 : arrange by analyst and year
+NFLX2 <- NFLX2 %>%                            
+  group_by(ANALYS) %>%
+  dplyr::mutate(past_accuracy = lag(forecast_performance, n = 1, default = NA)) 
+summary(NFLX2$past_accuracy)
+summary(NFLX2)
+```
+
+### TASK 5
+
+The longer the forecast horizon, the higher the uncertainty associated with EPS forecast. To control for this fact, create a new column in **NFLX2** called **horizon** that captures the forecast horizon (ANNDATS_ACT- ANNDATS) for each analyst. Print the unique number of horizon values.
+
+```{r, echo=TRUE}
+NFLX2$ANNDATS <- ymd(NFLX2$ANNDATS)
+NFLX2$ANNDATS_ACT <- ymd(NFLX2$ANNDATS_ACT)
+
+
+str(NFLX2$ANNDATS)
+NFLX2$horizon <- difftime(NFLX2$ANNDATS_ACT, NFLX2$ANNDATS, units = c("days"))
+
+unique(table(NFLX2$horizon ))
+
+
+# unique(table(NFLX2$horizon ))
+```
+
+### TASK 6
+
+We assume that if an analyst is monitoring a company for a long period of time, he/she is expected to make more informed predictions. Create a new column in NFLX2 called **experience** that counts the cumulative number of years the analyst monitor (have predictions) the company. Print the summary of experience column.
+
+```{r, echo=TRUE}
+library(tidyverse)
+# Sort the dataset by analyst and year
+NFLX2=NFLX2[order(NFLX2$ANALYS, NFLX2$YEAR), ]
+
+NFLX2$experience <- 0
+
+for (i in 1:nrow(NFLX2)) {
+  # If it's the first prediction for the analyst, set experience to 1
+  if (i == 1 || NFLX2$ANALYS[i] != NFLX2$ANALYS[i-1]) {
+    NFLX2$experience[i] <- 1
+  }
+  else {
+    NFLX2$experience[i] <- NFLX2$experience[i-1] + 1
+  }
+}
+
+summary(NFLX2$experience)
+
+
+```
+
+### TASK 7
+
+If a brokerage house have many analysts making predictions for the same company, it can be a sign of more resources allocated for company analysis. Create a new column in NFLX2 called **size** that counts the total number of analyst employed per year by the brokerage house (ESTIMATOR). Print the frequencies for size variable.
+
+```{r, echo=TRUE}
+
+NFLX2 <- NFLX2 %>%
+  group_by(ESTIMATOR, YEAR) %>%
+  
+  mutate(size = n_distinct(ANALYS)) %>%
+  ungroup()
+
+
+table(NFLX2$size)
+
+```
+
+### TASK 8
+
+As a benchmark, take the average forecasts by all analysts as your best forecast of the EPS for that year and store your forecast of APPL EPS (ACTUAL) for each year in a data frame named as **consensus_forecast**. Print the consensus_forecast values.
+
+```{r, echo=TRUE}
+NFLX2$YEAR<-as.factor(NFLX2$YEAR)
+consensus_forecast <- aggregate(VALUE ~ as.factor(YEAR), data = NFLX2, FUN = mean)
+names(consensus_forecast) <- c("Year", "forecast")
+consensus_forecast$ACTUAL <- tapply(NFLX2$ACTUAL, NFLX2$YEAR, FUN = mean)
+consensus_forecast
+
+# consensus_forecast
+```
+
+### TASK 9
+
+For each year, calculate the **forecast_error** as the difference between the actual EPS and the **consensus_forecast** and show it in your answer.
+
+```{r, echo=TRUE}
+forecast_error <- consensus_forecast %>% mutate(Forecast_Error = consensus_forecast$forecast - consensus_forecast$ACTUAL)
+forecast_error
+
+
+
+# forecast_error 
+
+```
+
+### TASK 10:
+
+Create a new dataset called NFLX3 that takes the size, actual, experience, horizon, and **past_accuracy** variables from NFLX2 and aggregate them to yearly averages. Show the the summary of NFLX3 dataset.
+
+```{r, echo=TRUE}
+
+
+
+library(skimr)
+NFLX2$horizon <- as.numeric(gsub("[^0-9]+", "", NFLX2$horizon))
+NFLX2$horizon<-as.numeric(NFLX2$horizon)
+NFLX3 <- NFLX2 %>% 
+  group_by(YEAR) %>% 
+  summarise(pro_size = mean(size),
+            pro_actual = mean(ACTUAL),
+            pro_experience = mean(experience),
+            pro_horizon = mean(horizon),
+            pro_past_accuracy = mean(past_accuracy, na.rm = TRUE))
+skim(NFLX3)
+
+```
+
+### **TASK 11:**
+
+By using NFLX3, consensus_forecast, NumberAnalyst , and NumberBrokerage, look at the correlation matrix, scatter plots and some other exploratory data analysis methods to explore possible connection between actual EPS value and other variables. This is an open ended question.
+
+```{r, echo=TRUE}
+
+library(ggplot2)
+library(GGally)
+library(ggcorrplot)
+library(corrplot)
+ggpairs(consensus_forecast,column=c(2,3))
+
+ggplot(NFLX3, aes(x = pro_experience, y = pro_actual)) +
+  geom_point() +
+  labs(x = "Average Experience (years)", y = "Average Actual EPS") +
+  theme_bw()
+
+x<-as.numeric(consensus_forecast$Year)
+y1<-as.numeric(consensus_forecast$ACTUAL)
+y2<-consensus_forecast$forecast
+plot(x, y1, type="l", col="red", xlab="sum of years(2002-2020)", ylab="Value", main="Line Graph showing trends for Actual and Forecast Values")
+lines(x, y2, col="green")
+# Adding a legend.
+legend("topright", legend=c("Actual", "Forecast"), col=c("red", "green"), lty=1)
+```

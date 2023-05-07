@@ -1,0 +1,266 @@
+---
+title: "Week 3 Assignment"
+author: "PAVAN KUMAR"
+    embed-resources: true
+editor: visual
+---
+
+## Week 3 Assignment
+
+## Return Prediction: Brief Explanation
+
+In Lab3, we will use the stock return data. We have monthly excess return data on a diversified portfolio along with 5 factors that are shown in the literature to have an impact on stock returns. Nobel Laureate Eugene Fama and Kenneth French originally introduced the three factors model in their 1993 Journal of Financial Economics article. Then, 2 more factors were added to the original model, called the 5-factor model. In this lab assignment, your task is to apply model selection techniques, knn, and cross-validation methods to come up with a model that will be used to estimate stock returns in new data set and the test root mean squared error (RMSE).
+
+-   **TARGET VARIABLE:** Excess return on a diversified portfolio and it is captured as return on a portfolio - risk free rate (return on Long-term US Government Bond returns).
+
+-   **5-Factors:**
+
+    1\. SIZE:Small-cap stocks tend to outperform large-cap stocks (Size is measured by stock price \* shares outstanding)
+
+    2\. VALUE: Cheaper stocks (Value stocks) tend to outperform expensive (Growth) stocks (Inexpensiveness: Book Value/Market Value, Book to Market ratio, B/M)
+
+    \- Lower the B/M, expensive the stock (Growth stocks)
+
+    \- Higher the B/M, cheap the stock (Value Stocks)
+
+    3\. MOMENTUM: Winners outperform losers
+
+    4\. RISK (BETA): Lower the beta of a stock, higher the return performance
+
+    5\. QUALITY: Higher the profitability, higher the return performance
+
+## Data Dictionary
+
+-   We have 500 observations in the original data, called Full_data. Data spans from November 1976 till June 2018.
+
+-   We divided Full_data into two sets: first400 and testset. The first 400 monthly observations were kept for training and validation purposes. Monthly data from November 1976 till February 2010 were randomly divided into two groups. You can use the trainingset to train alternative models and validationset to check your model performance.
+
+-   **testset**: The last 100 monthly observations are kept as our testing data and it spans from March 2010 till June 2018.
+
+**Target Variable**
+
+**Y**: Excess return on a portfolio= Portolio return - risk free rate (return on US Government bonds)
+
+**Factors (Predictors)**
+
+1\. SMB to capture size
+
+2\. HML to capture Value
+
+3\. MOM to capture Momentum
+
+4\. BAB to capture Risk
+
+5\. QMJ to capture Quality
+
+6\. MRP: A measure of average market risk premium: measures as return on a value-weighted market portfolio - risk free rate.
+
+Run the following R chunk code before working on the questions.
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+# WARNING: Do not modify the codes in here. 
+# Run this code before moving to the next one
+
+library(PerformanceAnalytics)
+library(xts)
+library(lubridate)
+library(tidyverse)
+library(dplyr)
+library(caret)
+library(e1071)
+library(class)
+library(ggplot2)
+
+
+my_factors <- read.csv(file.choose()) # call the data
+my_factors$Date <- mdy(my_factors$Date) # declare the date variable
+my_factors_sorted<- my_factors[order(my_factors$Date),] # sort by date
+All_data <- xts(my_factors_sorted[,-1],order.by = my_factors_sorted[,1],)
+All_data$Y<-All_data$Brk_ret-All_data$RF  # target variable
+
+Full_data<-as.data.frame(All_data) # convert to data frame
+Fulldata = subset(Full_data, select = -c(RF,Brk_ret,Brk_exret,Subperiod, Mkt))# drop redundant ones
+Fulldata<-Fulldata%>%
+    rename(MRP=Mkt_rf, MOM=Mom)
+
+first400<-Fulldata[1:400,]  # use the first 400 as training and validation set
+testset<-Fulldata[401:500,]  # last 100 for the test set
+
+set.seed(5410)   # use this seed
+# shuffle the index for the testing data
+shuffle<-sample(nrow(first400), 0.25*nrow(first400))
+ # Get the training data in training set
+trainingset<-first400[-shuffle,]
+# Get the validation set in trainingf  data
+validationset<-first400[shuffle,]
+
+
+```
+
+## PART I
+
+In this part, you will be totally blind to **testset** (You can't use **testset** in part I).
+
+#### Part I: Question 1
+
+Use the step function in stats package and run a forward stepwise regression on **trainingset** and name your model **model_forward**. If we use AIC information criteria, which variables are selected based on model_forward?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT: use step function and choose either criterion = "AIC" and criterion = "BIC"
+# Enter your code below
+names(trainingset)
+model_forward <- step(lm(Y ~ ., data = trainingset), direction = "forward", k = log(nrow(trainingset)), trace = 0)
+summary(model_forward)
+```
+
+The selected variables are MOM, MRP, SMB, HML, QMJ and BAB.
+
+#### Part I: Question 2
+
+Use the step function in stats package and run a backward stepwise regression on **trainingset** and name your model **model_backward**. If we use **BIC** information criteria, which variables are selected based on **model_backward**?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT: use step function and choose either criterion = "AIC" and criterion = "BIC"
+# Enter your code below
+model_backward <- step(lm(Y ~ ., data = trainingset), direction = "backward", k = log(nrow(trainingset)), trace = 0)
+summary(model_backward)
+```
+
+The selected variables are MRP, HML and QMJ.
+
+#### Part I: Question 3
+
+Fit **model_forward** and **model_backward** models on **validationset** data and calculate the corresponding **RMSE** values.
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT 1: Use predict () function to get the predictions. RMSE formula: sqrt(mean((Actual-Fitted)^2))
+
+# HINT 2: An easier way would be to use rmse() function in Metrics package
+# Enter your code below
+library(Metrics)
+predictions <- predict(model_forward, newdata = validationset)
+RMSE_forward <- rmse(validationset$Y, predictions)
+print(RMSE_forward)
+predictions1<-predict(model_backward, newdata = validationset)
+RMSE_backward <- rmse(validationset$Y, predictions1)
+print(RMSE_backward)
+
+
+
+```
+
+## KNN Regression
+
+In this part, you will be totally blind to **testset** (You can't use testset in part II).
+
+In Part II, by using the **caret** package in R, your task is to fit the following five models to the **first400** dataset by using K-nearest neighbors regression (KNN regression) method to find the right value of k for each model.
+
+-   **model1**: $Y=\beta_{0}+\beta_{1}MRP+\beta_{2}SMB+\epsilon$
+
+-   **model5**: $Y=\beta_{0}+\beta_{1}MRP+\beta_{2}SMB+\beta_{3}HML+\beta_{4}MOM+\beta_{5}BAB+\beta_{6}QMJ+\epsilon$
+
+#### PART II Question 4
+
+Use the **train** function in **caret** package, use knn to train **model1** with **first400** data. Use 10-fold cross validation. Use the **set.seed(2022)** seed values and by using expand.grid, evaluate odd k values up to 50. Use scaled and centered data by using the preProcess function and name your model as **knn_model1**.
+
+What is the average RMSE at optimal k value?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+
+# HINT: Use tuneGrid = expand.grid(k = seq(1, 50, by = 2)) for odd k grid search
+# HINT: Use preProcess=c('center', 'scale') to preprocess the data
+# HINT: Use trControl = trainControl(method = "CV", number = 10) for 10-fold cros validation
+# HINT: knn_model1$results will produce the average results
+# Enter your code below
+
+set.seed(2022)
+preproc <- preProcess(first400[, -1], method = c("center", "scale"))
+first400[, -1] <- predict(preproc, first400[, -1])
+
+#Defining the training control object.
+cont <- trainControl(method = "cv", number = 10)
+
+#Using expand.grid in order to evaluate odd k values up to 50.
+k.values <- expand.grid(k = seq(1, 50, by = 2))
+#model
+knn_model1 <- train(Y ~ ., data = first400, method = "knn",
+                    trControl = cont, tuneGrid = k.values)
+
+#The optimal k value and its RMSE:
+cat("Optimal k value:", knn_model1$bestTune$k, "\n")
+cat("RMSE:", knn_model1$results[knn_model1$bestTune$k, "RMSE"], "\n")
+
+
+
+```
+
+The average RMSE at optimal K value = 19 is 0.9123059.
+
+#### PART II Question 5
+
+Use the **train** function in **caret** package, use knn to train **model5** with **first400** data. Use 10-fold cross validation. Use the **set.seed(2022)** seed values and by using expand.grid, evaluate odd k values up to 50. Use scaled and centered data by using the preProcess function. Call your model **knn_model5**.
+
+What is the optimal k value?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT: Use tuneGrid = expand.grid(k = seq(1, 50, by = 2)) for odd k grid search
+# HINT: Use preProcess=c('center', 'scale') to preprocess the data
+# HINT: Use trControl = trainControl(method = "CV", number = 10) for 10-fold cros validation
+# HINT: knn_model5$bestTune will produce the average results
+# Enter your code below
+
+set.seed(2022)
+#Preprocessing the data. 
+preprocess <- preProcess(first400[, -1], method = c("center", "scale"))
+first400[, -1] <- predict(preprocess, first400[, -1])
+#Defining training control.
+control <- trainControl(method = "cv", number = 10)
+#Using expand.grid im order evaluate odd k values up to 50
+k.values <- expand.grid(k = seq(1, 50, by = 2))
+#Training the knn model using train()
+knn_model5 <- train(Y ~ ., data = first400, method = "knn",
+                    trControl = control, tuneGrid = k.values)
+#Printing out the optimal k value.
+cat("Optimal k value:", knn_model5$bestTune$k, "\n")
+```
+
+Optimal k value is equal to 19.
+
+#### ART II Question 6
+
+Use **knn_model5** to predict Y in **testset** data and name your predictions as **knn_model5_predict**. What is the **RMSE** value in testset based on knn_model5_predict?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT: use predict function
+# HINT: you canuse rmse() function in Metrics package
+# Enter your code below
+testset[, -1] <- predict(preproc, testset[, -1])
+#making predictions
+knn_model5_predict <- predict(knn_model5, newdata = testset)
+RMSE <- RMSE(knn_model5_predict, testset$Y)
+cat("RMSE value based on testset=", RMSE, "\n")
+```
+
+#### PART III Question 7
+
+If we define best model as the one with lowest RMSE value in \*\***testset**\*\*, which of the following is your best model?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+# HINT: use predict() function to get the predictions on testset
+# HINT: you canuse rmse() function in Metrics package to calculate RMSE values
+# Enter your code below
+model_forward_pred <- RMSE(predict(model_forward, newdata = testset), testset$Y)
+model_backward_pred <- RMSE(predict(model_backward, newdata = testset), testset$Y)
+knn_model1_pred <- RMSE(predict(knn_model1, newdata = testset), testset$Y)
+knn_model5_pred <- RMSE(predict(knn_model5, newdata = testset), testset$Y)
+cat("Model_forward RMSE:", model_forward_pred, "\n")
+cat("Model_backward RMSE:", model_backward_pred, "\n")
+cat("Knn_model1 RMSE:", knn_model1_pred, "\n")
+cat("Knn_model5 RMSE:", knn_model5_pred, "\n")
+```
+
+The models that were best are knn_model1, and knn_model5 because they had a minimum RMSE of 0.5797
+
+#### Question 8
+
+Click on Render icon on to convert this file into HTML format before submitting in Canvas

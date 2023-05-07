@@ -1,0 +1,166 @@
+---
+title: "ADTA 5410 RLab1"
+author: "Pavan Kumar Bodepudi"
+date: "04/18/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+You are expected to complete this homework in R by using this Rmarkdown file in RStudio environment.   Create a new folder in your computer and save this Rmarkdown file and the Data_RLab1.csv file in the same folder. 
+
+
+Submission instructions: Submit your knitted Rmarkdown file along with your answers in Canvas.   
+
+
+0. Write your full name in the "Author" part above and save as this Rmarkdown file by adding your initials to the end (i.e., RLab1_LB.Rmd) 
+
+
+
+## Intro 
+
+In this Lab assignment, we will use data from the U.S. Dept. of Education College scorecard. Data is in csv file. We will import it to R format and name the dataset as **school_raw** by using the **read.csv** command, shown below, and in cases where any cell takes the value of "NULL" or "PrivacySuppressed", we will code them NA. 
+
+
+```{r }
+if (!require("knitr")) install.packages("knitr")
+if (!require("dplyr")) install.packages("dplyr")
+library(knitr)
+library(dplyr)
+school_raw <- read.csv("Data_RLab1.csv", na = c("NULL", "PrivacySuppressed"))
+
+```
+
+Data is messy. There are `r dim(school_raw)[1]` observations and `r dim(school_raw)[2]` variables.   
+
+
+```{r }
+
+dim(school_raw)
+```
+
+For the sake of this lab assignment, we will only keep the following 6 variables.  
+
+
+- CONTROL - onwnership type (public, private - NP, private - P)
+- C150_4 - Completion/graduation  rate
+- PREDDEG - Predominat type of degree awarded
+- SAT_AVG - average SAT score of students admitted
+- UGDS - Enrollment of undergraduat certificate/degree-seeking students
+- COSTT4_A - Average cost of attendance (academic year institutions)
+
+
+We will use the following code to keep only the above 6 variables and call the reduced dataset *schools*. 
+
+```{r }
+
+schools  <- subset(school_raw, select =c(CONTROL,  C150_4, PREDDEG,SAT_AVG, UGDS, COSTT4_A))
+
+head(schools)
+```
+
+
+
+
+
+# Prepare the Data 
+1. **[Prepare the Data #1]**  Filter *schools* data by  keeping only predominantly bachelor's degree granting schools ($PREDDEG=='3'$) and call it *schools_filtered*. **What are the dimensions of the filtered data *schools_filtered* (number of rows and columns)**
+ 
+
+
+```{r }
+# Your code goes in here
+schools_filtered<-schools[schools$PREDDEG=='3',]
+dim(schools_filtered)
+```
+2.    **[Prepare the Data #2]** How many missing values are there for each variable in the filtered data set *schools_filtered*? Write an R code below to calculate the total number of missing values for each variable. 
+```{r }
+# Your code goes in here
+summary(schools_filtered)
+colSums(is.na(schools_filtered))
+sapply(schools_filtered, function(x) sum(is.na(x)))
+```
+
+3.  **[Prepare the Data #3]** Now, write an R code to drop observations in *schools_filtered* when C150_4 variable has missing values and call it *schools_filtered1* .  What are the dimensions of *schools_filtered1* data (number of rows and columns)?    
+
+```{r }
+# Your code goes in here
+schools_filtered1<-subset(schools_filtered, !is.na(schools_filtered$C150_4)) 
+dim(schools_filtered1)
+
+```
+
+
+4.  **[Prepare the Data #4]** Now, impute (replace) missing values in **schools_filtered1** **SAT_AVG** and **COSTT4_A** with their corresponding median scores. When you calculate the median for each variable, ignore the NAs. What are the mean values of **SAT_AVG** and **COSTT4_A**  after imputation?
+
+
+```{r }
+# Your code goes in here
+median_SAT_AVG<-median(schools_filtered1$SAT, na.rm = TRUE)
+median_COSTT4_A<-median(schools_filtered1$COSTT4_A, na.rm = TRUE)
+mean_SAT_AVG<-mean(schools_filtered1$SAT, na.rm = TRUE)
+mean_COSTT4_A<-mean(schools_filtered1$COSTT4_A, na.rm = TRUE)
+median_SAT_AVG
+median_COSTT4_A
+mean_SAT_AVG
+mean_COSTT4_A
+library(knitr)
+schools_filtered1$SAT[is.na(schools_filtered1$SAT)]<-median_SAT_AVG
+schools_filtered1$COSTT4_A[is.na(schools_filtered1$COSTT4_A)]<-median_COSTT4_A
+schools_filtered1$SAT[is.na(schools_filtered1$SAT)]<-mean_SAT_AVG
+schools_filtered1$COSTT4_A[is.na(schools_filtered1$COSTT4_A)]<-mean_COSTT4_A
+#summary(schools_filtered1)
+
+
+```
+
+
+5. **[Prepare the Data #5]**  Now, drop ***PREDDEG**  from the data set and name your dataset as **schools_filtered2**. 
+Also,  rename  variables in **schools_filtered2** as follows:   
+Rename SAT_AVG  to SAT
+
+Rename C150_4   to graduation_rate
+
+Rename UGDS  to enrollment.
+
+Rename COSTT4_A  to cost.
+
+Then, write an R code to treat CONTROL variable as a factor.  After that, run the following code in your console and choose from below the corresponding code output:
+**schools_filtered2$CONTROL<-as.factor(schools_filtered2$CONTROL)**
+
+```{r }
+# Your code goes in here
+
+#cor(schools_filtered2$CONTROL, schools_filtered2$cost)
+# Your code goes in here
+colnames(schools_filtered1)[which(names(schools_filtered1) == "SAT_AVG")] <- "SAT"
+colnames(schools_filtered1)[which(names(schools_filtered1) == "C150_4")] <- "graduation_rate"
+colnames(schools_filtered1)[which(names(schools_filtered1) == "UGDS")] <- "enrollment"
+colnames(schools_filtered1)[which(names(schools_filtered1) == "COSTT4_A")] <- "cost"
+schools_filtered2 <- subset(schools_filtered1, select =c(CONTROL, graduation_rate, SAT,enrollment,cost))
+dim(schools_filtered2)
+schools_filtered2$CONTROL <- as.factor(schools_filtered2$CONTROL)
+str(schools_filtered2)
+
+```
+
+
+6. **[Prepare the Data #6]** 
+For the **enrollment** variable in **schools_filtered2**, calculate the followings:
+- The first quartile (Q1) for enrollment
+- The third quartile (Q3) for enrollment
+- Number of observations in enrollment data that can be considered extremely high (that are larger than 3rd quartile for enrollment+1.5*Interquartile range for enrollment)
+
+```{r }
+# Your code goes in here
+quantile(schools_filtered2$enrollment,prob=c(.25,.5,.75))
+sum(schools_filtered2$enrollment>(4951+(1.5)*4043))
+
+```
+
+
+
+Make sure that your R codes will run. Knit your file to html and submit it on Canvas along with your answers.  
